@@ -175,48 +175,66 @@ public class Game1 : Microsoft.Xna.Framework.Game
 
     protected override void Draw(GameTime gameTime)
     {
-        GraphicsDevice.Clear(Color.CornflowerBlue);
+        GraphicsDevice.Clear(Constants.Colors.Background);
 
         _spriteBatch.Begin();
 
-        _spriteBatch.Draw(_pixel, new Rectangle(20, 20, 330, 400), new Color(0, 0, 0, 50));
-        _spriteBatch.Draw(_pixel, new Rectangle(390, 20, 320, 700), new Color(0, 0, 0, 50));
+        _spriteBatch.Draw(_pixel, new Rectangle(20, 20, 330, 400), Constants.Colors.PanelBackground);
+        _spriteBatch.Draw(_pixel, new Rectangle(390, 20, 320, 700), Constants.Colors.PanelBackground);
 
-        _spriteBatch.DrawString(_font, "RESOURCES", new Vector2(30, 25), Color.Black);
-        _spriteBatch.DrawString(_font, "UPGRADES", new Vector2(400, 25), Color.Black);
+        _spriteBatch.DrawString(_font, "RESOURCES", new Vector2(30, 25), Constants.Colors.TextLight);
+        _spriteBatch.DrawString(_font, "UPGRADES", new Vector2(400, 25), Constants.Colors.TextLight);
 
         foreach (var pair in _buttons.Concat(_upgradeButtons))
         {
             var button = pair.Value;
-            var color = button.WasPressed ? Color.DarkGray : 
-                       (pair.Key.StartsWith("Sell") ? new Color(255, 200, 200) : Color.White);
-            _spriteBatch.Draw(_pixel, button.Bounds, color);
+            Color buttonColor;
+            
+            if (pair.Key.StartsWith("Sell"))
+            {
+                buttonColor = button.WasPressed ? Constants.Colors.SellButtonHover : 
+                             button.IsHovered ? Constants.Colors.SellButtonHover : 
+                             Constants.Colors.SellButton;
+            }
+            else if (!pair.Key.Contains("_")) // Resource gathering buttons
+            {
+                buttonColor = GetResourceButtonColor(pair.Key, button.IsHovered, button.WasPressed);
+            }
+            else // Upgrade buttons
+            {
+                buttonColor = button.WasPressed ? Constants.Colors.ButtonPressed :
+                             button.IsHovered ? Constants.Colors.ButtonHover :
+                             Constants.Colors.ButtonNormal;
+            }
+            
+            _spriteBatch.Draw(_pixel, button.Bounds, buttonColor);
             
             Vector2 textSize = _font.MeasureString(button.Text);
             Vector2 textPos = new Vector2(
                 button.Bounds.X + (button.Bounds.Width - textSize.X) / 2,
                 button.Bounds.Y + (button.Bounds.Height - textSize.Y) / 2
             );
-            _spriteBatch.DrawString(_font, button.Text, textPos, Color.Black);
+            _spriteBatch.DrawString(_font, button.Text, textPos, Constants.Colors.TextLight);
         }
 
         int yOffset = 450;
         foreach (var pair in _resources)
         {
+            Color resourceColor = GetResourceColor(pair.Key);
             string text = $"{pair.Key}: {(int)pair.Value.Amount}";
             if (pair.Key != "Gold")
             {
                 text += $" (Sells for {(int)pair.Value.SellPrice} Gold each)";
             }
-            _spriteBatch.DrawString(_font, text, new Vector2(30, yOffset), Color.Black);
+            _spriteBatch.DrawString(_font, text, new Vector2(30, yOffset), resourceColor);
             
             if (pair.Key != "Gold")
             {
                 string rateText = $"Per Second: {(int)pair.Value.PerSecond}";
-                _spriteBatch.DrawString(_font, rateText, new Vector2(30, yOffset + 20), Color.DarkGray);
+                _spriteBatch.DrawString(_font, rateText, new Vector2(30, yOffset + 20), Constants.Colors.TextGray);
                 
                 string clickText = $"Per Click: {(int)pair.Value.PerClick}";
-                _spriteBatch.DrawString(_font, clickText, new Vector2(200, yOffset + 20), Color.DarkGray);
+                _spriteBatch.DrawString(_font, clickText, new Vector2(200, yOffset + 20), Constants.Colors.TextGray);
             }
             
             yOffset += 50;
@@ -225,6 +243,29 @@ public class Game1 : Microsoft.Xna.Framework.Game
         _spriteBatch.End();
 
         base.Draw(gameTime);
+    }
+
+    private Color GetResourceButtonColor(string resourceName, bool isHovered, bool isPressed)
+    {
+        if (isPressed)
+        {
+            return GetResourceColor(resourceName, true);
+        }
+        return isHovered ? GetResourceColor(resourceName, true) : GetResourceColor(resourceName);
+    }
+
+    private Color GetResourceColor(string resourceName, bool hover = false)
+    {
+        return resourceName switch
+        {
+            "Wood" => hover ? Constants.Colors.Resources.WoodHover : Constants.Colors.Resources.Wood,
+            "Stone" => hover ? Constants.Colors.Resources.StoneHover : Constants.Colors.Resources.Stone,
+            "Iron" => hover ? Constants.Colors.Resources.IronHover : Constants.Colors.Resources.Iron,
+            "Copper" => hover ? Constants.Colors.Resources.CopperHover : Constants.Colors.Resources.Copper,
+            "Coal" => hover ? Constants.Colors.Resources.CoalHover : Constants.Colors.Resources.Coal,
+            "Gold" => Constants.Colors.GoldText,
+            _ => Constants.Colors.ButtonNormal
+        };
     }
 
     protected override void UnloadContent()
