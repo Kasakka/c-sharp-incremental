@@ -1,6 +1,8 @@
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Input;
 
+namespace incremental.UI;
+
 public class Button
 {
     public Rectangle Bounds { get; set; }

@@ -1,37 +1,38 @@
 using Microsoft.Xna.Framework;
 
+namespace incremental.Models;
+
 public class Resource
 {
     public string Name { get; set; }
     public decimal Amount { get; set; }
     public decimal PerSecond { get; set; }
     public decimal PerClick { get; set; }
-    public decimal SellPrice { get; set; }
+    public decimal BasePrice { get; private set; }
 
-    public Resource(string name, decimal amount = 0, decimal perSecond = 0, decimal perClick = 1, decimal sellPrice = 0.1m)
+    public Resource(string name, decimal amount, decimal perSecond, decimal perClick, decimal basePrice = 0)
     {
         Name = name;
         Amount = amount;
         PerSecond = perSecond;
         PerClick = perClick;
-        SellPrice = sellPrice;
+        BasePrice = basePrice;
     }
 
-    public void Update(GameTime gameTime)
-    {
-        decimal deltaTime = (decimal)gameTime.ElapsedGameTime.TotalSeconds;
-        Amount += PerSecond * deltaTime;
-    }
+    public void Click() => Amount += PerClick;
 
-    public void Click()
-    {
-        Amount += PerClick;
-    }
+    public decimal SellPrice => BasePrice;
 
     public decimal Sell(decimal amount)
     {
         if (amount > Amount) amount = Amount;
         Amount -= amount;
         return amount * SellPrice;
+    }
+
+    public void Update(GameTime gameTime)
+    {
+        float deltaSeconds = (float)gameTime.ElapsedGameTime.TotalSeconds;
+        Amount += PerSecond * (decimal)deltaSeconds;
     }
 } 
