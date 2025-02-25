@@ -20,6 +20,8 @@ public class Game1 : Microsoft.Xna.Framework.Game
     private Dictionary<string, Button> _buttons;
     private Dictionary<string, List<Upgrade>> _upgrades;
     private Dictionary<string, Button> _upgradeButtons;
+    private List<FloatingText> _floatingTexts;
+    private Dictionary<string, Vector2> _buttonScales;
     
     public Game1()
     {
@@ -30,6 +32,9 @@ public class Game1 : Microsoft.Xna.Framework.Game
         _graphics.PreferredBackBufferWidth = Constants.Window.Width;
         _graphics.PreferredBackBufferHeight = Constants.Window.Height;
         _graphics.ApplyChanges();
+        
+        _floatingTexts = new List<FloatingText>();
+        _buttonScales = new Dictionary<string, Vector2>();
     }
 
     protected override void Initialize()
@@ -93,6 +98,12 @@ public class Game1 : Microsoft.Xna.Framework.Game
             }
         }
         
+        // Initialize button scales
+        foreach (var button in _buttons.Concat(_upgradeButtons))
+        {
+            _buttonScales[button.Key] = Vector2.One;
+        }
+        
         base.Initialize();
     }
 
@@ -112,27 +123,56 @@ public class Game1 : Microsoft.Xna.Framework.Game
 
         MouseState mouseState = Mouse.GetState();
         
+        float deltaTime = (float)gameTime.ElapsedGameTime.TotalSeconds;
+        
+        // Update button scales
+        foreach (var pair in _buttonScales)
+        {
+            Vector2 targetScale = Vector2.One;
+            if (_buttons.ContainsKey(pair.Key) && _buttons[pair.Key].WasPressed ||
+                _upgradeButtons.ContainsKey(pair.Key) && _upgradeButtons[pair.Key].WasPressed)
+            {
+                targetScale = new Vector2(0.95f, 0.95f);
+            }
+            _buttonScales[pair.Key] = Vector2.Lerp(_buttonScales[pair.Key], targetScale, deltaTime * 10f);
+        }
+
+        // Update floating texts
+        _floatingTexts.RemoveAll(text => !text.Update(gameTime));
+
+        // Handle resource gathering and selling buttons
         foreach (var pair in _buttons)
         {
             if (pair.Value.Update(mouseState))
             {
                 if (pair.Key == "SellAll")
                 {
+                    decimal totalGold = 0;
                     foreach (var resource in _resources.Where(r => r.Key != "Gold"))
                     {
                         decimal goldEarned = resource.Value.Sell(resource.Value.Amount);
-                        _resources["Gold"].Amount += goldEarned;
+                        totalGold += goldEarned;
+                    }
+                    if (totalGold > 0)
+                    {
+                        _resources["Gold"].Amount += totalGold;
+                        AddFloatingText($"+{(int)totalGold} Gold", pair.Value.Bounds);
                     }
                 }
                 else if (pair.Key.StartsWith("Sell"))
                 {
                     string resourceName = pair.Key.Substring(4);
                     decimal goldEarned = _resources[resourceName].Sell(_resources[resourceName].Amount);
-                    _resources["Gold"].Amount += goldEarned;
+                    if (goldEarned > 0)
+                    {
+                        _resources["Gold"].Amount += goldEarned;
+                        AddFloatingText($"+{(int)goldEarned} Gold", pair.Value.Bounds);
+                    }
                 }
                 else
                 {
                     _resources[pair.Key].Click();
+                    AddFloatingText($"+{(int)_resources[pair.Key].PerClick}", pair.Value.Bounds);
                 }
             }
         }
@@ -173,6 +213,15 @@ public class Game1 : Microsoft.Xna.Framework.Game
         base.Update(gameTime);
     }
 
+    private void AddFloatingText(string text, Rectangle sourceBounds)
+    {
+        Vector2 position = new Vector2(
+            sourceBounds.X + sourceBounds.Width / 2,
+            sourceBounds.Y + sourceBounds.Height / 2
+        );
+        _floatingTexts.Add(new FloatingText(text, position, Constants.Colors.TextLight));
+    }
+
     protected override void Draw(GameTime gameTime)
     {
         GraphicsDevice.Clear(Constants.Colors.Background);
@@ -185,6 +234,7 @@ public class Game1 : Microsoft.Xna.Framework.Game
         _spriteBatch.DrawString(_font, "RESOURCES", new Vector2(30, 25), Constants.Colors.TextLight);
         _spriteBatch.DrawString(_font, "UPGRADES", new Vector2(400, 25), Constants.Colors.TextLight);
 
+        // Draw buttons with scale animation
         foreach (var pair in _buttons.Concat(_upgradeButtons))
         {
             var button = pair.Value;
@@ -207,12 +257,22 @@ public class Game1 : Microsoft.Xna.Framework.Game
                              Constants.Colors.ButtonNormal;
             }
             
-            _spriteBatch.Draw(_pixel, button.Bounds, buttonColor);
+            // Calculate scaled rectangle
+            Vector2 scale = _buttonScales[pair.Key];
+            Vector2 center = new Vector2(button.Bounds.Center.X, button.Bounds.Center.Y);
+            Rectangle scaledBounds = new Rectangle(
+                (int)(center.X - (button.Bounds.Width * scale.X) / 2),
+                (int)(center.Y - (button.Bounds.Height * scale.Y) / 2),
+                (int)(button.Bounds.Width * scale.X),
+                (int)(button.Bounds.Height * scale.Y)
+            );
+            
+            _spriteBatch.Draw(_pixel, scaledBounds, buttonColor);
             
             Vector2 textSize = _font.MeasureString(button.Text);
             Vector2 textPos = new Vector2(
-                button.Bounds.X + (button.Bounds.Width - textSize.X) / 2,
-                button.Bounds.Y + (button.Bounds.Height - textSize.Y) / 2
+                scaledBounds.X + (scaledBounds.Width - textSize.X) / 2,
+                scaledBounds.Y + (scaledBounds.Height - textSize.Y) / 2
             );
             _spriteBatch.DrawString(_font, button.Text, textPos, Constants.Colors.TextLight);
         }
@@ -238,6 +298,12 @@ public class Game1 : Microsoft.Xna.Framework.Game
             }
             
             yOffset += 50;
+        }
+
+        // Draw floating texts
+        foreach (var floatingText in _floatingTexts)
+        {
+            floatingText.Draw(_spriteBatch, _font);
         }
 
         _spriteBatch.End();
